@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📖 PDF Flipbook</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Lato:wght@300;400&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#1a1410;--surface:#2a2018;--border:#5a4a30;
+  --gold:#c8a45a;--gold2:#e8c87a;--text:#f0e8d8;--muted:#9a8a6a;
+  --page:#fdf8f0;
+}
+body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;
+  min-height:100vh;display:flex;flex-direction:column;align-items:center;overflow-x:hidden}
+
+header{width:100%;padding:1rem 2rem;display:flex;align-items:center;
+  justify-content:space-between;border-bottom:1px solid var(--border);
+  background:rgba(26,20,16,0.97);position:sticky;top:0;z-index:100}
+.logo{font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--gold)}
+.hc{display:flex;gap:.6rem;align-items:center}
+.btn{background:transparent;border:1px solid var(--border);color:var(--text);
+  padding:.4rem .9rem;border-radius:4px;cursor:pointer;font-size:.82rem;
+  font-family:'Lato',sans-serif;transition:all .2s;display:flex;align-items:center;gap:.35rem}
+.btn:hover{border-color:var(--gold);color:var(--gold)}
+.btn.pri{background:var(--gold);color:#1a1410;border-color:var(--gold);font-weight:700}
+.btn.pri:hover{background:var(--gold2)}
+input[type=file]{display:none}
+
+#dz{margin:5rem auto;width:min(480px,88vw);border:2px dashed var(--border);
+  border-radius:12px;padding:3.5rem 2rem;text-align:center;cursor:pointer;
+  transition:all .3s;background:var(--surface)}
+#dz:hover,#dz.ov{border-color:var(--gold);background:rgba(200,164,90,.06)}
+#dz .ic{font-size:3rem;margin-bottom:.8rem}
+#dz h2{font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--gold);margin-bottom:.4rem}
+#dz p{color:var(--muted);font-size:.88rem;line-height:1.6}
+#dz .cb{display:inline-block;margin-top:1.2rem;padding:.55rem 1.4rem;
+  background:var(--gold);color:#1a1410;border-radius:4px;font-weight:700;font-size:.88rem;cursor:pointer}
+
+#lw{width:min(380px,80vw);margin-top:2rem;display:none;text-align:center}
+#lw p{font-size:.83rem;color:var(--muted);margin-bottom:.5rem}
+#lb{height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+#lf{height:100%;background:var(--gold);width:0%;transition:width .3s}
+
+#stage{display:none;flex-direction:column;align-items:center;
+  width:100%;padding:2rem 1rem 3rem}
+
+/* perspective wrapper */
+#bw{perspective:2200px;margin-bottom:1.8rem;position:relative;display:inline-block}
+
+/* static page */
+#pd{position:relative;background:var(--page);border-radius:2px;
+  box-shadow:6px 8px 35px rgba(0,0,0,.75),-2px 0 12px rgba(0,0,0,.3);overflow:hidden}
+#pd canvas{display:block}
+#pnum{position:absolute;bottom:8px;right:12px;font-size:10px;
+  color:#9a8a6a;font-family:'Playfair Display',serif;pointer-events:none;z-index:3}
+#pcurl{position:absolute;bottom:0;right:0;width:28px;height:28px;
+  background:linear-gradient(225deg,#e8e0d0 40%,rgba(200,164,90,.2) 55%,transparent 70%);
+  pointer-events:none;opacity:.6;z-index:2}
+
+/* flip layer */
+#fl{position:absolute;top:0;left:0;transform-style:preserve-3d;
+  z-index:10;pointer-events:none;display:none}
+#ff,#fb{position:absolute;top:0;left:0;
+  backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  background:var(--page);overflow:hidden}
+#fb{transform:rotateY(180deg)}
+#ff canvas,#fb canvas{display:block}
+
+/* controls */
+.ctrl{display:flex;align-items:center;gap:.9rem;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:40px;padding:.55rem 1.1rem}
+.nb{width:38px;height:38px;border-radius:50%;background:transparent;
+  border:1px solid var(--border);color:var(--text);cursor:pointer;font-size:1rem;
+  display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.nb:hover:not(:disabled){background:var(--gold);color:#1a1410;border-color:var(--gold)}
+.nb:disabled{opacity:.28;cursor:not-allowed}
+.pi{display:flex;align-items:center;gap:.35rem}
+.pi input{width:46px;background:var(--bg);border:1px solid var(--border);
+  border-radius:4px;color:var(--text);text-align:center;font-size:.82rem;
+  padding:.22rem .3rem;font-family:'Playfair Display',serif}
+.pi input:focus{outline:none;border-color:var(--gold)}
+.pi span{font-size:.82rem;color:var(--muted)}
+.pi span b{color:var(--gold)}
+.hint{margin-top:.9rem;font-size:.75rem;color:#4a3a22;text-align:center}
+.k{display:inline-block;border:1px solid #4a3a22;border-radius:3px;
+  padding:1px 5px;font-size:.68rem;margin:0 2px}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+#stage{animation:fadeUp .45s ease both}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">📖 Flipbook</div>
+  <div class="hc">
+    <label for="fi" class="btn pri">📂 Mở PDF</label>
+    <input type="file" id="fi" accept=".pdf">
+    <button class="btn" id="zout" style="display:none">－</button>
+    <button class="btn" id="zin"  style="display:none">＋</button>
+  </div>
+</header>
+
+<div id="dz">
+  <div class="ic">📄</div>
+  <h2>Chọn file PDF</h2>
+  <p>Kéo & thả file PDF vào đây<br>hoặc nhấn nút bên dưới</p>
+  <label for="fi" class="cb">Chọn file PDF</label>
+</div>
+
+<div id="lw">
+  <p id="lt">Đang tải...</p>
+  <div id="lb"><div id="lf"></div></div>
+</div>
+
+<div id="stage">
+  <div id="bw">
+    <div id="pd">
+      <canvas id="mc"></canvas>
+      <div id="pcurl"></div>
+      <div id="pnum"></div>
+    </div>
+    <div id="fl">
+      <div id="ff"><canvas id="ffc"></canvas></div>
+      <div id="fb"><canvas id="fbc"></canvas></div>
+    </div>
+  </div>
+
+  <div class="ctrl">
+    <button class="nb" id="bfirst">⏮</button>
+    <button class="nb" id="bprev">◀</button>
+    <div class="pi">
+      <input type="number" id="pj" min="1">
+      <span>/ <b id="tp">0</b></span>
+    </div>
+    <button class="nb" id="bnext">▶</button>
+    <button class="nb" id="blast">⏭</button>
+  </div>
+  <div class="hint">
+    <span class="k">←</span><span class="k">→</span> phím mũi tên &nbsp;|&nbsp;
+    <span class="k">Space</span> trang tiếp &nbsp;|&nbsp;
+    click nửa phải = tiếp, nửa trái = lùi
+  </div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc=
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+let pdf=null,cache={},cur=1,total=0,scale=1.4,pw=0,ph=0,busy=false;
+
+const fi=document.getElementById('fi');
+const dz=document.getElementById('dz');
+const stage=document.getElementById('stage');
+const pd=document.getElementById('pd');
+const mc=document.getElementById('mc');
+const pnum=document.getElementById('pnum');
+const fl=document.getElementById('fl');
+const ff=document.getElementById('ff');
+const fb=document.getElementById('fb');
+const ffc=document.getElementById('ffc');
+const fbc=document.getElementById('fbc');
+const tp=document.getElementById('tp');
+const pj=document.getElementById('pj');
+const bprev=document.getElementById('bprev');
+const bnext=document.getElementById('bnext');
+const bfirst=document.getElementById('bfirst');
+const blast=document.getElementById('blast');
+const lw=document.getElementById('lw');
+const lf=document.getElementById('lf');
+const lt=document.getElementById('lt');
+
+fi.addEventListener('change',e=>{ if(e.target.files[0]) load(e.target.files[0]); });
+dz.addEventListener('dragover',e=>{ e.preventDefault(); dz.classList.add('ov'); });
+dz.addEventListener('dragleave',()=>dz.classList.remove('ov'));
+dz.addEventListener('drop',e=>{
+  e.preventDefault(); dz.classList.remove('ov');
+  const f=e.dataTransfer.files[0];
+  if(f&&f.type==='application/pdf') load(f);
+});
+
+async function load(file){
+  dz.style.display='none';
+  lw.style.display='block'; lf.style.width='5%'; lt.textContent='Đang đọc file...';
+  pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
+  total=pdf.numPages; tp.textContent=total; pj.max=total;
+  lf.style.width='18%';
+
+  const vp=(await pdf.getPage(1)).getViewport({scale});
+  pw=Math.round(vp.width); ph=Math.round(vp.height);
+  resize();
+
+  lt.textContent='Đang render trang...';
+  for(let i=1;i<=total;i++){
+    await rp(i);
+    lf.style.width=(18+Math.round(i/total*78))+'%';
+  }
+
+  lw.style.display='none';
+  stage.style.display='flex';
+  document.getElementById('zin').style.display='';
+  document.getElementById('zout').style.display='';
+  cur=1; await show(1); upd();
+}
+
+function resize(){
+  [mc,ffc,fbc].forEach(c=>{ c.width=pw; c.height=ph; c.style.width=pw+'px'; c.style.height=ph+'px'; });
+  [ff,fb,fl].forEach(el=>{ el.style.width=pw+'px'; el.style.height=ph+'px'; });
+  pd.style.width=pw+'px'; pd.style.height=ph+'px';
+}
+
+async function rp(n){
+  if(cache[n]) return cache[n];
+  const pg=await pdf.getPage(n);
+  const oc=document.createElement('canvas');
+  oc.width=pw; oc.height=ph;
+  await pg.render({canvasContext:oc.getContext('2d'),viewport:pg.getViewport({scale})}).promise;
+  return cache[n]=oc;
+}
+
+async function draw(c,n){
+  const ctx=c.getContext('2d');
+  if(!n||n<1||n>total){ ctx.fillStyle='#fdf8f0'; ctx.fillRect(0,0,pw,ph); return; }
+  ctx.clearRect(0,0,pw,ph);
+  ctx.drawImage(await rp(n),0,0);
+}
+
+async function show(n){
+  await draw(mc,n);
+  pnum.textContent=n+' / '+total;
+  pj.value=n;
+  fl.style.display='none';
+  mc.style.opacity='1';
+}
+
+async function flipTo(target){
+  if(busy||target===cur||target<1||target>total) return;
+  busy=true;
+  const fwd=target>cur;
+
+  await draw(ffc,cur);
+  await draw(fbc,target);
+
+  fl.style.transition='none';
+  fl.style.display='block';
+  fl.style.transformOrigin = fwd ? 'left center' : 'right center';
+  fl.style.transform='rotateY(0deg)';
+  mc.style.opacity='0';
+
+  // double rAF to let browser apply the reset before animating
+  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+
+  fl.style.transition='transform 0.5s cubic-bezier(0.42,0,0.58,1)';
+  fl.style.transform=fwd ? 'rotateY(-180deg)' : 'rotateY(180deg)';
+
+  await new Promise(r=>setTimeout(r,520));
+
+  cur=target;
+  await show(cur);
+  upd(); busy=false;
+}
+
+function upd(){
+  bprev.disabled=bfirst.disabled=cur<=1;
+  bnext.disabled=blast.disabled=cur>=total;
+}
+
+bnext.addEventListener('click',()=>flipTo(cur+1));
+bprev.addEventListener('click',()=>flipTo(cur-1));
+bfirst.addEventListener('click',()=>flipTo(1));
+blast.addEventListener('click',()=>flipTo(total));
+pj.addEventListener('change',()=>{ const v=parseInt(pj.value); if(v>=1&&v<=total) flipTo(v); });
+
+document.addEventListener('keydown',e=>{
+  if(!pdf) return;
+  if(e.key==='ArrowRight'||e.key===' '){ e.preventDefault(); flipTo(cur+1); }
+  if(e.key==='ArrowLeft'){ e.preventDefault(); flipTo(cur-1); }
+});
+
+pd.addEventListener('click',e=>{
+  if(!pdf||busy) return;
+  e.offsetX > pw/2 ? flipTo(cur+1) : flipTo(cur-1);
+});
+
+document.getElementById('zin').addEventListener('click',async()=>{ if(scale<2.4){scale+=0.2;await rzoom();} });
+document.getElementById('zout').addEventListener('click',async()=>{ if(scale>0.6){scale-=0.2;await rzoom();} });
+
+async function rzoom(){
+  cache={};
+  const vp=(await pdf.getPage(1)).getViewport({scale});
+  pw=Math.round(vp.width); ph=Math.round(vp.height);
+  resize();
+  for(let i=1;i<=total;i++) await rp(i);
+  await show(cur);
+}
+</script>
+</body>
+</html>
